@@ -56,6 +56,7 @@ echo
 ##
 echo "Build account names list (keys add, add-genesis-account)"
   accnames_unfiltered=("${ACCNAME_BANK}")
+  accnames_unfiltered=("${accnames_unfiltered[@]}" "${EXTRA_ACCOUNTS[@]} ")
   for i in $(seq 1 $NODES_CNT_FIX); do
     accnames_unfiltered+=("${ACCPREFIX_VALIDATOR}${i}")
   done

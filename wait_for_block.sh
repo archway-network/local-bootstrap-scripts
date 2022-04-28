@@ -2,20 +2,27 @@
 
 set -e
 
-blockGetter='archwayd q --node tcp://localhost:26671 block | jq -r ".block.header.height"'
-blockLimit=500
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source "${DIR}/config.sh"
+source "${DIR}/lib/common.sh"
 
-echo "-> Cluster start"
-./node_cluster_run.sh 3
+# Input check: target block
+if [ $# -eq 0 ]; then
+  echo "Usage: wait_for_block.sh targetBlockNumber"
+  exit
+fi
+TARGET_BLOCK=$1
 
+blockGetter="${COSMOSD} q --node tcp://localhost:${NODE_RPC_PORT_PREFIX}1 block | jq -r \".block.header.height\""
+
+echo "-> Waiting for block ${TARGET_BLOCK}"
 while : ; do
   block=$(eval ${blockGetter})
-  echo "-> Block: ${block} / ${blockLimit}"
-  if [ "${block}" -ge "${blockLimit}" ]; then
+  echo "  Block: ${block} / ${TARGET_BLOCK}"
+  if [ "${block}" -ge "${TARGET_BLOCK}" ]; then
     break
   fi
   sleep 5
 done
-
-echo "-> Cluster stop"
-./stop_all.sh
+echo "-> Done"
+echo

@@ -25,8 +25,11 @@ SKIP_GENESIS_OPS=false
 ## Those accounts should be imported to the local keyring using import_genesis_acc.sh script before cluster init
 SKIP_GENACC_NAMES=""
 
-# Generated accounts balance
+# Generated accounts balance (comma-separated list)
 GENACC_COINS="1000000000ARCH,1000000000stake"
+
+# Additional accounts to be created with ${GENACC_COINS} balances (besides "standard" bank, validators) [BASH array]
+EXTRA_ACCOUNTS=("faucet-1" "faucet-2" "faucet-3" "faucet-4" "faucet-5")
 
 # Min self delegation amount for all validators (base and new)
 MIN_SELF_DELEGATION_AMT="1000000000"
@@ -36,7 +39,7 @@ BASENODE_STAKE="${MIN_SELF_DELEGATION_AMT}stake"
 
 # New validator balance that is transferred from local-bank
 ## Value is used by the node_add_to_cluster.sh script to transfer some tokens for a new validator to start
-NEWNODE_ACC_COINS="1000ARCH"
+NEWNODE_ACC_COINS="1000ARCH,1000000000stake"
 
 # Self-delegation value for new validators
 NEWNODE_STAKE="${MIN_SELF_DELEGATION_AMT}stake"

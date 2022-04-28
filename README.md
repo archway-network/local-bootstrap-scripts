@@ -76,7 +76,7 @@ If `path_to_exported_genesis` argument is provided, cluster will start of from a
 
 Copy and adjust the default config to your needs:
 
-  cp config_default.sh config.sh
+    cp config_default.sh config.sh
 
 ### Scripts
 
@@ -99,6 +99,9 @@ Scripts are using values defined in the `config.sh` file.
 * `import_genesis_acc.sh acc_name acc_index acc_mnemonic [acc_number]`
   * Example: `./import_genesis_acc.sh local-bank 1 'secret'`
   * Script is useful when custom genesis file is used, and some account should be reused rather than generating it from scratch (`local-validator-1` for example).
+* `wait_for_block.sh target_block`
+  * Example: `./wait_for_block.sh 500`
+  * Script queries the 1st node and waits for it to reach the `{target_block}`.
 
 ### How does it work
 
