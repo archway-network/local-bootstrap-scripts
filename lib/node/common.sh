@@ -1,34 +1,17 @@
-set -e
-COMMON_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "$(dirname ${COMMON_DIR})/config.sh"
-set +e
-
 # Folders
 NODE_DIR_PREFIX="${CLUSTER_DIR}/anode_"
 COMMON_DIR="${CLUSTER_DIR}/common"
 KEYRING_DIR="${CLUSTER_DIR}/keyring"
 
 # Local account names
-ACCNAME_BANK="local-bank"
-ACCPREFIX_VALIDATOR="local-validator-"
-
-# Node ports
-NODE_P2P_PORT_PREFIX="2666"
-NODE_RPC_PORT_PREFIX="2667"
-NODE_PROXY_PORT_PREFIX="2665"
-NODE_GRPC_PORT_PREFIX="919"
-NODE_GRPC_WEB_PORT_PREFIX="929"
+ACCNAME_BANK="${CHAIN_ID}_local-bank"
+ACCPREFIX_VALIDATOR="${CHAIN_ID}_local-validator-"
 
 # CLI flags
 PASSPHRASE="passphrase"
 
 # Other
 NODE_MONIKER_PREFIX="node_"
-
-# Join string array [$2...] with $1 IFS delimiter
-function ArrayJoin {
-  local IFS="$1"; shift; echo "$*";
-}
 
 # Set node ports for NODE_ID $1
 function AppConfig_setPorts() {
@@ -80,4 +63,21 @@ function Keys_createSafe {
   fi
 
   set -e
+}
+
+# Create account $1 key (override if exists) and save secret data to file
+function Keys_createWithOverride {
+  cli_keys_flags="--keyring-backend ${KEYRING_BACKEND} --keyring-dir ${KEYRING_DIR} --output json"
+
+  # >>
+  acc_data=`printf 'y\n' | ${COSMOSD} keys add $1 ${cli_keys_flags} 2>&1`
+  
+  echo ${acc_data} > "${KEYRING_DIR}/$1_key"
+}
+
+# Print account $1 mnemonic
+function Keys_getMnemonic {
+  mnemonic=$(cat ${KEYRING_DIR}/$1_key | jq -r '.mnemonic')
+
+  echo -n ${mnemonic}
 }

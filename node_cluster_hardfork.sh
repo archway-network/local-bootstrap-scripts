@@ -2,8 +2,11 @@
 
 set -e
 
+# Imports
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${DIR}/lib/common.sh"
+source "${DIR}/lib/read_flags.sh"
+source "${DIR}/lib/utils.sh"
+source "${DIR}/lib/node/common.sh"
 
 GEN_EXPORT_PATH="${COMMON_DIR}/hardfork_genesis.json"
 NODE1_HOME="${NODE_DIR_PREFIX}1"

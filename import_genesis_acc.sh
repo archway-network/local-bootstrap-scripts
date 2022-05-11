@@ -3,9 +3,9 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 source "${DIR}/lib/common.sh"
 
-# Input check:
+# Input checks
 if [ $# -eq 0 ]; then
-  echo "Usage: import_genesis_acc.sh name index mnemonic [account_number]"
+  echo "Usage: import_genesis_acc.sh [-c config_path] name index mnemonic [account_number]"
   exit
 fi
 

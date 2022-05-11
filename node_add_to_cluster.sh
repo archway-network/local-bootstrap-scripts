@@ -7,7 +7,7 @@ source "${DIR}/lib/common.sh"
 
 # Input check: node ID
 if [ $# -eq 0 ]; then
-  echo "Usage: node_add_to_cluster.sh node_id"
+  echo "Usage: node_add_to_cluster.sh [-c config_path] node_id"
   exit
 fi
 
@@ -83,8 +83,6 @@ echo "-> Wait for chain init"
     target_block=$(${COSMOSD} q --node ${NODE1_RPC_URL} block | jq '.block.header.height' | bc)
     echo "CurrentBlock / TargetBlock: ${cur_block} / ${target_block}"
   done
-
-  # kill -TERM ${node_pid}
 echo "-> Done"
 echo
 

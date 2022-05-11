@@ -1,22 +1,15 @@
-#!/bin/bash
-
-set -e
-
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "$(dirname ${DIR})/common.sh"
-
-NODE_ID=0
-NODE_DIR="${NODE_DIR_PREFIX}${NODE_ID}"
-CLI_COMMON_FLAGS="--home ${NODE_DIR}"
+node_id=0
+node_dir="${NODE_DIR_PREFIX}${node_id}"
+cli_common_flags="--home ${node_dir}"
 
 echo "Collect genesis TXs and validate"
-  cp "${NODE_DIR}/config/genesis.json" "${COMMON_DIR}/genesis.json.orig"
+  cp "${node_dir}/config/genesis.json" "${COMMON_DIR}/genesis.json.orig"
 
   # >>
-  ${COSMOSD} collect-gentxs --gentx-dir "${COMMON_DIR}/gentx" ${CLI_COMMON_FLAGS} &> /dev/null
-  ${COSMOSD} validate-genesis ${CLI_COMMON_FLAGS}
+  ${COSMOSD} collect-gentxs --gentx-dir "${COMMON_DIR}/gentx" ${cli_common_flags} &> /dev/null
+  ${COSMOSD} validate-genesis ${cli_common_flags}
   
-  cp "${NODE_DIR}/config/genesis.json" "${COMMON_DIR}/genesis.json"
+  cp "${node_dir}/config/genesis.json" "${COMMON_DIR}/genesis.json"
 echo
 
 echo "Distribute genesis.json to nodes"

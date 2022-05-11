@@ -2,13 +2,13 @@
 
 set -e
 
+# Imports
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${DIR}/config.sh"
-source "${DIR}/lib/common.sh"
+source "${DIR}/lib/read_flags.sh"
 
 # Input check: target block
 if [ $# -eq 0 ]; then
-  echo "Usage: wait_for_block.sh targetBlockNumber"
+  echo "Usage: wait_for_block.sh -c config_path targetBlockNumber"
   exit
 fi
 TARGET_BLOCK=$1

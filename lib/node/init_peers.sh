@@ -1,10 +1,3 @@
-#!/bin/bash
-
-set -e
-
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "$(dirname ${DIR})/common.sh"
-
 echo "Reading node IDs"
   i=0
   while read file; do

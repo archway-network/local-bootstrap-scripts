@@ -1,46 +1,39 @@
-#!/bin/bash
-
-set -e
-
 IFS=',' read -r -a SKIP_GENACC_NAMES <<< "${SKIP_GENACC_NAMES}"
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "$(dirname ${DIR})/common.sh"
-
 # Define node params
-NODE_ID=0
-NODE_DIR="${NODE_DIR_PREFIX}${NODE_ID}"
-NODE_MONIKER="${NODE_MONIKER_PREFIX}${NODE_ID}"
-CLI_COMMON_FLAGS="--home ${NODE_DIR}"
+node_id=0
+node_dir="${NODE_DIR_PREFIX}${node_id}"
+node_moniker="${NODE_MONIKER_PREFIX}${node_id}"
+cli_common_flags="--home ${node_dir}"
 
 ##
 echo "Preparing directories"
   rm -rf "${COMMON_DIR}"
-  rm -rf "${NODE_DIR}"
+  rm -rf "${node_dir}"
 
   mkdir -p "${KEYRING_DIR}"
   mkdir -p "${COMMON_DIR}/gentx"
-  mkdir -p "${NODE_DIR}"
+  mkdir -p "${node_dir}"
 echo
 
 ##
 echo "Init node: 0"
-  cli_init_flags="${CLI_COMMON_FLAGS} --chain-id ${CHAIN_ID}"
+  cli_init_flags="${cli_common_flags} --chain-id ${CHAIN_ID}"
 
   # >>
-  ${COSMOSD} init ${NODE_MONIKER} ${cli_init_flags} &> "${COMMON_DIR}/${NODE_MONIKER}_info.json"
+  ${COSMOSD} init ${node_moniker} ${cli_init_flags} &> "${COMMON_DIR}/${node_moniker}_info.json"
 
-  AppConfig_setPorts ${NODE_ID}
+  AppConfig_setPorts ${node_id}
 
   echo "  PEX:                  on"
   echo "  Seed mode:            on"
   echo "  AddrBook strict mode: on"
-  sed -i.bak -e 's;seed_mode = false;seed_mode = true;' "${NODE_DIR}/config/config.toml"
-  sed -i.bak -e 's;addr_book_strict = true;addr_book_strict = false;' "${NODE_DIR}/config/config.toml"
+  sed -i.bak -e 's;seed_mode = false;seed_mode = true;' "${node_dir}/config/config.toml"
+  sed -i.bak -e 's;addr_book_strict = true;addr_book_strict = false;' "${node_dir}/config/config.toml"
 
   if [ ! -z "${EXPORTED_GENESIS}" ]; then
     echo "  Replace default genesis with an exported one"
-    cp "${EXPORTED_GENESIS}" "${NODE_DIR}/config/genesis.json"
+    cp "${EXPORTED_GENESIS}" "${node_dir}/config/genesis.json"
   fi
 echo
 
@@ -61,7 +54,7 @@ echo "Build account names list (keys add, add-genesis-account)"
     accnames_unfiltered+=("${ACCPREFIX_VALIDATOR}${i}")
   done
 
-  ACCNAMES=()
+  accnames=()
   for accname_raw in "${accnames_unfiltered[@]}"; do
     skip=false
 
@@ -74,17 +67,17 @@ echo "Build account names list (keys add, add-genesis-account)"
     done
 
     if ! $skip; then
-      ACCNAMES+=(${accname_raw})
+      accnames+=(${accname_raw})
     fi
   done
 
-  echo "  Active account names: ${ACCNAMES[@]}"
+  echo "  Active account names: ${accnames[@]}"
 echo
 
 ##
 echo "Add keys"
-  for accname in "${ACCNAMES[@]}"; do
-    Keys_createSafe ${accname}
+  for accname in "${accnames[@]}"; do
+    Keys_createWithOverride ${accname}
     echo "  ${accname}: key created (or skipped if already exists)"
   done
 echo
@@ -92,9 +85,9 @@ echo
 ##
 echo "Add genesis accounts"
   if ! $SKIP_GENESIS_OPS; then
-    cli_genacc_flags="${CLI_COMMON_FLAGS} --keyring-backend ${KEYRING_BACKEND} --output json"
+    cli_genacc_flags="${cli_common_flags} --keyring-backend ${KEYRING_BACKEND} --output json"
 
-    for accname in "${ACCNAMES[@]}"; do
+    for accname in "${accnames[@]}"; do
       # >>
       ${COSMOSD} add-genesis-account $(Keys_getAddr ${accname}) ${GENACC_COINS} ${cli_genacc_flags}
 
@@ -108,7 +101,7 @@ echo
 ##
 echo "Change other genesis settings"
   if ! $SKIP_GENESIS_OPS; then
-    printf "$(jq '.app_state.gov.voting_params.voting_period = "300s"' ${NODE_DIR}/config/genesis.json)" > ${NODE_DIR}/config/genesis.json
+    printf "$(jq '.app_state.gov.voting_params.voting_period = "300s"' ${node_dir}/config/genesis.json)" > ${node_dir}/config/genesis.json
   else
     echo "  Operation skipped"
   fi
@@ -117,15 +110,15 @@ echo
 ##
 echo "Validate genesis"
   # >>
-  ${COSMOSD} validate-genesis "${NODE_DIR}/config/genesis.json" ${CLI_COMMON_FLAGS}
+  ${COSMOSD} validate-genesis "${node_dir}/config/genesis.json" ${cli_common_flags}
 
-  cp "${NODE_DIR}/config/genesis.json" "${COMMON_DIR}/genesis.json"
+  cp "${node_dir}/config/genesis.json" "${COMMON_DIR}/genesis.json"
 echo
 
 ##
 echo "Collect peers data"
-  cli_tm_flags="${CLI_COMMON_FLAGS}"
+  cli_tm_flags="${cli_common_flags}"
 
   # >>
-  ${COSMOSD} tendermint show-node-id ${cli_tm_flags} > "${COMMON_DIR}/${NODE_MONIKER}_nodeID"
+  ${COSMOSD} tendermint show-node-id ${cli_tm_flags} > "${COMMON_DIR}/${node_moniker}_nodeID"
 echo

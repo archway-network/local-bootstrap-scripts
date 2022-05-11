@@ -16,6 +16,7 @@ Common requirements:
 * `jq` - used to alter JSON configs;
   * `brew install jq` for OS X
 * `docker` - no comments;
+* [Cosmos Relayer](https://github.com/cosmos/relayer) for IBC relayer bootstrap;
 
 Some scripts do require additional apps to be available, refer to section's **Requirements** to find them.
 
@@ -28,10 +29,10 @@ Outside of the `tmux` session:
 
     # List all active sessions
     tmux ls
-
+    
     # Attach to an existing session
     tmux a -t {session_name}
-
+    
     # Kill all tmux sessions and Docker container (only those started by this scripts)
     ./stop_all.sh
 
@@ -39,19 +40,19 @@ Inside of a `tmux` session:
 
     # Help
     Ctrl + b -> ?
-
+    
     # Detach from the current session
     Ctrl + b -> d
-
+    
     # Switch to prev session
     Ctrl + b -> (
-
+    
     # Switch to next session
     Ctrl + b -> )
-
+    
     # Search (like Vim)
     / [text] Enter
-
+    
     # Terminate the current process
     Ctrl + c
 
@@ -59,7 +60,7 @@ Tmux has its own buffer and scrolling, so mouse scroll won't work by default.
 To enable it edit the tmux config:
 
     vim ~/.tmux.conf
-
+    
     # Add the line
     set -g mouse on
 
@@ -74,34 +75,34 @@ If `path_to_exported_genesis` argument is provided, cluster will start of from a
 
 ### Requirements
 
-Copy and adjust the default config to your needs:
-
-    cp config_default.sh config.sh
+Prepare cluster config file for your chain ([example](./config/arch.sh)). Since there could be multiple chains runnings at the same time, each script requires a path to the corresponding config.
 
 ### Scripts
 
-Scripts are using values defined in the `config.sh` file.
-
-* `node_cluster_init.sh`
-  * Example: `./node_cluster_init.sh`
+* `node_cluster_init.sh -c path_to_config`
+  * Example: `./node_cluster_init.sh -c config/gaiaA.sh`
   * Initializes genesis, configs and P2P network configuration for cluster of base nodes.
-* `node_run.sh node_ID`
-  * Example: `./node_run.sh 1`
+* `node_run.sh -c path_to_config node_ID`
+  * Example: `./node_run.sh -c config/gaiaA.sh 1`
   * Starts the node within the current terminal session.
-* `node_cluster_run.sh`
-  * Example: `./node_cluster_run.sh`
+* `node_cluster_run.sh -c path_to_config`
+  * Example: `./node_cluster_run.sh -c config/gaiaA.sh`
   * Runs the `node_run.sh` scripts.
-  * Each node is `tmux`-ed into `node_{NODE_ID}` tmux session.
-* `node_add_to_cluster.sh node_ID`
-  * Example: `./node_add_to_cluster.sh 4`
+  * Each node is `tmux`-ed into `{CHAIN_ID}_node_{NODE_ID}` tmux session.
+* `node_add_to_cluster.sh -c path_to_config node_ID`
+  * Example: `./node_add_to_cluster.sh -c config/gaiaA.sh 4`
   * Having a cluster of nodes up and running, script initializes a new one, wait for it to sync up and registers a new validator.
   * Script doesn't start the new node, use `node_run.sh` after this one.
-* `import_genesis_acc.sh acc_name acc_index acc_mnemonic [acc_number]`
-  * Example: `./import_genesis_acc.sh local-bank 1 'secret'`
+* `import_genesis_acc.sh -c path_to_config acc_name acc_index acc_mnemonic [acc_number]`
+  * Example: `./import_genesis_acc.sh -c config/gaiaA.sh local-bank 1 'secret'`
   * Script is useful when custom genesis file is used, and some account should be reused rather than generating it from scratch (`local-validator-1` for example).
-* `wait_for_block.sh target_block`
-  * Example: `./wait_for_block.sh 500`
+* `wait_for_block.sh -c path_to_config target_block`
+  * Example: `./wait_for_block.sh -c config/gaiaA.sh 500`
   * Script queries the 1st node and waits for it to reach the `{target_block}`.
+* `stop_cluster.sh -c path_to_config`
+  * Example: `./stop_cluster.sh -c config/gaiaA.sh`
+  * Stops all tmux sessions for a chain.
+
 
 ### How does it work
 
@@ -113,7 +114,7 @@ On `{COSMOSD} start` `--home` argument provides home-directory for node instance
 
 #### Keyring
 
-The variable `KEYRING_BACKEND` ([common.sh](lib/common.sh) file) defines which secret storage to use:
+The config variable `KEYRING_BACKEND` defines which secret storage to use:
 * `os`
   * OS storage (for OSX: `Keychain access`);
   * Doesn't require the passphrase enter for each keyring operation;
@@ -122,9 +123,9 @@ The variable `KEYRING_BACKEND` ([common.sh](lib/common.sh) file) defines which s
   * Requires passphrase to be entered for each keyring operation;
   * Default passphrase: `passphrase`;
 
-Script creates a new account key (`local-bank`, `local-validator1`, etc.) only if it is not present.
+Script creates a new account key (`{CHAIN_ID}_local-bank`, `{CHAIN_ID}_local-validator1`, etc.) only if it is not present.
 That way mnemonic and address is only created once per account.
-The `local-` prefix is needed to avoid collisions with existing genesis account when an exported genesis is used.
+Account  prefix is needed to avoid collisions with existing genesis account when an exported genesis is used or with other chain accounts.
 
 Mnemonic and private keys can be found in the `${HOME}/{CLUSTER_DIR}/local/keyring` directory (`validator1_key`, `bank_key`, etc.).
 Those files are created as a new account is created.
@@ -150,3 +151,26 @@ Examples:
 
     cgaiad_q bank balances $(cgaiad_keys show local-validator1 -a)
     cgaiad_tx bank send $(cgaiad_keys show local-bank -a) $(cgaiad_keys show local-validator1 -a) 1atom -y
+
+## Relayer
+
+Scripts to init and start IBC relayer instances to connect two chains via channels.
+
+### Requirements
+
+Prepare relayer config file for your chains ([example](./config/relayer_gaiaAB.sh)). Path is bidirectional, so there is no need to create A->B and B->A paths.
+
+### Scripts
+
+* `relayer_init.sh -c path_to_config`
+  * Example: `./relayer_init.sh -c config/relayer_gaiaAB.sh`
+  * Initializes relayer config, adds chain and path configs.
+  * Script sends multiple transactions to create IBC clients and channels (that can take some time).
+* `relayer_run.sh -c path_to_config`
+  * Example: `./relayer_run.sh -c config/relayer_gaiaAB.sh`
+  * Starts multiple relayer instances (one for each path).
+  * Each instance is tmux-ed into `{CHAIN1_ID}_{CHAIN2_ID}_relayer_{path_name}` tmux session.
+* `stop_relayer.sh -c path_to_config`
+  * Example: `./stop_relayer.sh -c config/relayer_gaiaAB.sh`
+  * Stops all tmux sessions for relayers.
+
