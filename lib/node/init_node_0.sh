@@ -77,7 +77,8 @@ echo
 ##
 echo "Add keys"
   for accname in "${accnames[@]}"; do
-    Keys_createWithOverride ${accname}
+    Keys_createSafe ${accname}
+    # Keys_createWithOverride ${accname}
     echo "  ${accname}: key created (or skipped if already exists)"
   done
 echo

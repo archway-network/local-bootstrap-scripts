@@ -18,6 +18,7 @@ echo "Relayer chain config build and upload"
   cp "${DIR}/chain.json.template" "${chain_relayer_config}"
   sed -i.bak -e 's;{relayerAccount};'"${CHAIN_ID}_relayer"';' "${chain_relayer_config}"
   sed -i.bak -e 's;{chainID};'"${CHAIN_ID}"';' "${chain_relayer_config}"
+  sed -i.bak -e 's;{bech32Prefix};'"${BECH32_PREFIX}"';' "${chain_relayer_config}"
   sed -i.bak -e 's;{rpcPort};'"${NODE_RPC_PORT_PREFIX}1"';' "${chain_relayer_config}"
   sed -i.bak -e 's;{keyringBackend};'"${KEYRING_BACKEND}"';' "${chain_relayer_config}"
   sed -i.bak -e 's;{gasDenom};'"${STAKE_DENOM}"';' "${chain_relayer_config}"
@@ -33,10 +34,12 @@ echo
 #
 echo "Restoring relayer account key"
   relayer_accname="${CHAIN_ID}_relayer"
+  mnemonic="$(Keys_getMnemonic ${relayer_accname})"
 
   # >>
   set +e
-  rly --home "${RELAYER_DIR}" keys restore ${CHAIN_ID} ${relayer_accname} "$(Keys_getMnemonic ${relayer_accname})" 2>&1
+  rly --home "${RELAYER_DIR}" keys delete ${CHAIN_ID} ${relayer_accname} -y 2>&1
+  rly --home "${RELAYER_DIR}" keys restore ${CHAIN_ID} ${relayer_accname} "${mnemonic}" 2>&1
   set -e
 
   echo "  Account key added: ${relayer_accname}"

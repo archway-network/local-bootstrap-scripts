@@ -4,7 +4,7 @@
     "key": "{relayerAccount}",
     "chain-id": "{chainID}",
     "rpc-addr": "http://localhost:{rpcPort}",
-    "account-prefix": "cosmos",
+    "account-prefix": "{bech32Prefix}",
     "keyring-backend": "{keyringBackend}",
     "gas-adjustment": 1.2,
     "gas-prices": "10{gasDenom}",

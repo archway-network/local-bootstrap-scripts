@@ -6,6 +6,9 @@ COSMOSD="archwayd"
 ## That ID is also used as an account name prefix for default accounts ({CHAIN_ID}_local-bank, {CHAIN_ID}_local-validator-1, ...)
 CHAIN_ID="arch-1"
 
+# Account address prefix
+BECH32_PREFIX="archway"
+
 # Node port prefixes
 NODE_P2P_PORT_PREFIX="2666"
 NODE_RPC_PORT_PREFIX="2667"
