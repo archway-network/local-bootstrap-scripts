@@ -102,7 +102,7 @@ echo
 ##
 echo "Change other genesis settings"
   if ! $SKIP_GENESIS_OPS; then
-    printf "$(jq '.app_state.gov.voting_params.voting_period = "300s"' ${node_dir}/config/genesis.json)" > ${node_dir}/config/genesis.json
+    printf "$(jq '.app_state.gov.voting_params.voting_period = "30s"' ${node_dir}/config/genesis.json)" > ${node_dir}/config/genesis.json
   else
     echo "  Operation skipped"
   fi

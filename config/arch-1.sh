@@ -40,7 +40,7 @@ SKIP_GENACC_NAMES=""
 STAKE_DENOM="stake"
 
 # Generated accounts balance (comma-separated list)
-GENACC_COINS="1000000000ARCH,1000000000${STAKE_DENOM}"
+GENACC_COINS="1000000000ARCH,100000000000${STAKE_DENOM}"
 
 # Additional accounts to be created with ${GENACC_COINS} balances (besides "standard" bank, validators) [BASH array]
 EXTRA_ACCOUNTS=("${CHAIN_ID}_relayer" "${CHAIN_ID}_faucet-1")
