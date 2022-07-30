@@ -18,8 +18,9 @@ CMD_KEYS="archwayd keys --keyring-backend os"
 CMD_TX="archwayd tx --chain-id arch-1 --node tcp://localhost:26671 --keyring-backend os"
 CMD_Q="archwayd q --node tcp://localhost:26671"
 
-GAS=2000000
+GAS=5000000
 DENOM="stake"
+FEES="1000stake"
 
 NEWVOTING_COST_AMT="1000"
 VOTE_COST_AMT="100"
@@ -40,7 +41,7 @@ CONTRACT_ADDR=""
 #
 
 # Templates
-MSG_INSTANTIATE='{ "params": { "owner_addr": "%ownerAddr%", "new_voting_cost": { "denom": "%denom%", "amount": "%newVotingAmt%" }, "vote_cost": { "denom": "%denom%", "amount": "%voteAmt%" } } }'
+MSG_INSTANTIATE='{ "params": { "owner_addr": "%ownerAddr%", "new_voting_cost": "%newVotingAmt%%denom%", "vote_cost": "%voteAmt%%denom%", "ibc_send_timeout": 30000000000 } }'
 MSG_RELEASE='{ "release": {} }'
 MSG_NEW_VOTING='{ "new_voting": { "name": "%name%", "vote_options": [ %voteOptions% ], "duration": %duration% } }'
 MSG_VOTE='{ "vote": { "id": %id%, "option": "%option%", "vote": "%vote%" } }'
@@ -89,7 +90,7 @@ function InstantiateAndGetAddress() {
 
   echo "-> Instantiating code (${CODE_ID}) from the Sender addr"
     printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm instantiate "${CODE_ID}" "${msg}" --label "${CONTRACT_LABEL}" --no-admin --from "${CREATOR_ADDR}" --output json --gas ${GAS} -y -b block | pbcopy
+    ${CMD_TX} wasm instantiate "${CODE_ID}" "${msg}" --label "${CONTRACT_LABEL}" --admin "${CREATOR_ADDR}" --from "${CREATOR_ADDR}" --output json --gas ${GAS} --fees ${FEES} -y -b block | pbcopy
 
     CONTRACT_ADDR=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="instantiate") | .attributes[] | select(.key=="_contract_address").value')
     echo "ContractAddress: ${CONTRACT_ADDR}"
@@ -137,7 +138,7 @@ function MsgRelease() {
 
   echo "-> Sending the Release msg from the (${sender}) addr"
     printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${sender}" --gas ${GAS} -y -b block -o json | pbcopy
+    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${sender}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
 
     pbpaste | jq -r '.data' | xxd -r -p; echo
     pbpaste | jq '.raw_log'
@@ -165,7 +166,7 @@ function MsgNewVoting() {
 
   echo "-> Sending the NewVoting msg from the Sender addr with amount (${amount})"
     printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${CREATOR_ADDR}" --gas ${GAS} -y -b block -o json | pbcopy
+    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
 
     VOTING_ID=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="wasm-new_voting") | .attributes[] | select(.key=="voting_id").value')
     echo "Voting ID: ${VOTING_ID}"
@@ -187,7 +188,7 @@ function MsgVote() {
 
   echo "-> Sending the Vote msg from the (${sender}) addr with amount (${amount})"
     printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${sender}" --gas ${GAS} -y -b block -o json | pbcopy
+    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${sender}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
 
     pbpaste | jq '.raw_log'
   echo
@@ -199,7 +200,7 @@ function MsgCustom() {
 
   echo "-> Sending a custom msg from the Verifier addr"
     printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${CREATOR_ADDR}" --gas ${GAS} -y -b block
+    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block
   echo
 }
 
@@ -329,6 +330,27 @@ function SudoVoteCost() {
   echo
 
   voteForProposal "${proposal_id}"
+}
+
+# Set contract metadata
+function SetMetadata() {
+  rewards_addr="$1"
+
+  echo "-> Setting metadata"
+    ${CMD_TX} rewards set-contract-metadata "${CONTRACT_ADDR}" --owner-address "${CREATOR_ADDR}" --rewards-address "${rewards_addr}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block -o json | jq
+
+  echo
+}
+
+# Get contract metadata
+function GetMetadata() {
+  echo "-> Querying metadata"
+    ${CMD_Q} rewards contract-metadata "${CONTRACT_ADDR}"
+  echo
+}
+
+function GetCurrentBlock() {
+  ${CMD_Q} block | jq -r '.block.header.height'
 }
 
 function voteForProposal() {
@@ -498,6 +520,18 @@ while [[ $# -gt 0 ]]; do
 
     SelectLatestCodeInstance
     SudoVoteCost
+    ;;
+  set-metadata)
+    shift
+
+    SelectLatestCodeInstance
+    SetMetadata "${VOTER1_ADDR}"
+    GetMetadata
+    ;;
+  get-height)
+    shift
+
+    GetCurrentBlock
     ;;
   *)
     echo "Unsupported cmd"
