@@ -11,6 +11,6 @@ for i in $(seq 0 $NODES_CNT); do
   session_id="${CHAIN_ID}_node_${i}"
 
   echo "-> Starting node: tmux session: ${session_id}"
-  runner="${DIR}/node_run.sh ${ARGS_ALL} ${i}"
-  tmux new -d -s ${session_id} ${runner}
+    runner="${DIR}/node_run.sh ${ARGS_ALL} ${i}"
+    tmux new -d -s ${session_id} ${runner}
 done

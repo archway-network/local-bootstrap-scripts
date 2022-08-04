@@ -5,6 +5,7 @@ KEYRING_DIR="${CLUSTER_DIR}/keyring"
 
 # Local account names
 ACCNAME_BANK="${CHAIN_ID}_local-bank"
+ACCNAME_RELAYER="${CHAIN_ID}_local-relayer"
 ACCPREFIX_VALIDATOR="${CHAIN_ID}_local-validator-"
 
 # CLI flags

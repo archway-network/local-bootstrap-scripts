@@ -4,11 +4,11 @@
 ### That ID is also used as an account name prefix for default accounts:
 ###   - {CHAIN_ID}_local-bank;
 ###   - {CHAIN_ID}_local-validator-1, ...;
-CHAIN_ID="arch-1"
+CHAIN_ID="arch-2"
 
 ## Local cluster file path base.
 ### Account secrets, nodes data, configs, genesis, genTxs are stored here.
-CLUSTER_DIR="${HOME}/archway/local/arch-1"
+CLUSTER_DIR="${HOME}/archway/local/arch-2"
 
 ## Cluster size (must be GTE 1)
 ### Value also defines the number of validator accounts generated.
@@ -39,11 +39,11 @@ DEF_TX_FEES="1000000${STAKE_DENOM}" # 1.0 arch (more than enough for a single tx
 
 ## Node port prefixes.
 ### Actual port number is a combination of a prefix and a node index ({NODE_P2P_PORT_PREFIX}0, ...).
-NODE_P2P_PORT_PREFIX="2666"
-NODE_RPC_PORT_PREFIX="2667"
-NODE_PROXY_PORT_PREFIX="2665"
-NODE_GRPC_PORT_PREFIX="919"
-NODE_GRPC_WEB_PORT_PREFIX="929"
+NODE_P2P_PORT_PREFIX="2676"
+NODE_RPC_PORT_PREFIX="2677"
+NODE_PROXY_PORT_PREFIX="2675"
+NODE_GRPC_PORT_PREFIX="918"
+NODE_GRPC_WEB_PORT_PREFIX="928"
 
 # ---------- Genesis ---------------------------------------------------------------------------------------------------
 

@@ -2,8 +2,10 @@
 
 set -e
 
+# Imports
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source "${DIR}/lib/common.sh"
+source "${DIR}/lib/read_flags.sh"
+source "${DIR}/lib/node/common.sh"
 
 # Input check: node ID
 if [ $# -eq 0 ]; then
@@ -26,6 +28,7 @@ NODE_RPC_URL="http://127.0.0.1:${NODE_RPC_PORT_PREFIX}${NODE_ID}"
 
 CLI_COMMON_FLAGS="--home ${NODE_DIR}"
 
+#
 echo "-> Configuring node_${NODE_ID} (cluster should be up and running)"
   echo "Preparing directories"
     rm -rf "${NODE_DIR}"
@@ -37,7 +40,6 @@ echo "-> Configuring node_${NODE_ID} (cluster should be up and running)"
 
     # >>
     ${COSMOSD} init ${NODE_MONIKER} ${cli_init_flags} &> "${COMMON_DIR}/${NODE_MONIKER}_info.json"
-    ${COSMOSD} set-genesis-defaults ${CLI_COMMON_FLAGS} > /dev/null
 
     AppConfig_setPorts ${NODE_ID}
   echo
@@ -58,10 +60,12 @@ echo "-> Configuring node_${NODE_ID} (cluster should be up and running)"
 echo "-> Done"
 echo
 
-echo "-> Starting node: tmux session: node_${NODE_ID}"
-  session_id="node_${NODE_ID}"
-  runner="${DIR}/node_run.sh ${NODE_ID}"
+#
+session_id="${CHAIN_ID}_node_${NODE_ID}"
+echo "-> Starting node: tmux session: ${session_id}"
+  runner="${DIR}/node_run.sh -c ${CONFIG_PATH} ${NODE_ID}"
   tmux new -d -s ${session_id} ${runner}
+echo "-> Done"
 echo
 
 echo "-> Wait for chain init"
@@ -91,14 +95,14 @@ echo "-> Create validator key"
 echo "-> Done"
 echo
 
-echo "-> Send (self-stake + fee) coins from bank to validator acc"
+echo "-> Send coins from bank to validator acc"
   cli_bank_keys="--node ${NODE1_RPC_URL} --chain-id ${CHAIN_ID} --keyring-backend ${KEYRING_BACKEND} --keyring-dir ${KEYRING_DIR}"
 
   bank_addr=$(Keys_getAddr ${ACCNAME_BANK})
   validator_addr=$(Keys_getAddr "${ACCPREFIX_VALIDATOR}${NODE_ID}")
 
   # >>
-  printf '%s\n%s\n' ${PASSPHRASE} ${PASSPHRASE} | ${COSMOSD} tx bank send ${bank_addr} ${validator_addr} ${NEWNODE_ACC_COINS} ${cli_bank_keys} --yes --broadcast-mode block
+  printf '%s\n%s\n' ${PASSPHRASE} ${PASSPHRASE} | ${COSMOSD} tx bank send ${bank_addr} ${validator_addr} ${VALIDATOR_COINS} ${cli_bank_keys} --fees "${DEF_TX_FEES}" --yes --broadcast-mode block
 echo "-> Done"
 echo
 
@@ -108,10 +112,11 @@ echo "-> Create validator with staking"
 
   # >>
   validator_pubkey=$(${COSMOSD} tendermint show-validator ${cli_tm_flags})
-  printf '%s\n%s\n' ${PASSPHRASE} ${PASSPHRASE} | ${COSMOSD} tx staking create-validator ${cli_staking_flags} --amount=${NEWNODE_STAKE} --pubkey=${validator_pubkey} --moniker=${NODE_MONIKER} --commission-rate="0.10" --commission-max-rate="0.20" --commission-max-change-rate="0.01" --min-self-delegation="${MIN_SELF_DELEGATION_AMT}" --from "${validator_addr}" --yes --broadcast-mode block
+  printf '%s\n%s\n' ${PASSPHRASE} ${PASSPHRASE} | ${COSMOSD} tx staking create-validator ${cli_staking_flags} --amount="${MIN_SELF_DELEGATION_AMT}${STAKE_DENOM}" --pubkey=${validator_pubkey} --moniker=${NODE_MONIKER} --commission-rate="0.10" --commission-max-rate="0.20" --commission-max-change-rate="0.01" --min-self-delegation="${MIN_SELF_DELEGATION_AMT}" --from "${validator_addr}" --fees "${DEF_TX_FEES}" --yes --broadcast-mode block
 echo "-> Done"
 echo
 
 echo "-> New validator node_${NODE_ID} with address ${validator_pubkey} created:"
   # >>
   ${COSMOSD} q staking delegations ${validator_addr} --node ${NODE1_RPC_URL}
+echo

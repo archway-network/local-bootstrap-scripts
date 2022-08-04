@@ -16,7 +16,11 @@ Common requirements:
 * `jq` - used to alter JSON configs;
   * `brew install jq` for OS X
 * `docker` - no comments;
-* [Cosmos Relayer](https://github.com/cosmos/relayer) for IBC relayer bootstrap;
+* [Hermes Relayer](https://hermes.informal.systems) for IBC relayer bootstrap (scripts relies on v1.0.0-rc.1 version CLI);
+  * `git clone https://github.com/informalsystems/ibc-rs.git`;
+  * `cd ibc-rs; git checkout v1.0.0-rc.1`;
+  * `cargo build --release --no-default-features --bin hermes`;
+  * `mv target/release/hermes ~/.cargo/bin`;
 
 Some scripts do require additional apps to be available, refer to section's **Requirements** to find them.
 
@@ -75,29 +79,30 @@ If `path_to_exported_genesis` argument is provided, cluster will start of from a
 
 ### Requirements
 
-Prepare cluster config file for your chain ([example](./config/arch.sh)). Since there could be multiple chains runnings at the same time, each script requires a path to the corresponding config.
+Prepare cluster config file for your chain ([example](./config/arch.sh)).
+Since there could be multiple chains runnings at the same time, each script requires a path to the corresponding config.
 
 ### Scripts
 
 * `node_cluster_init.sh -c path_to_config`
-  * Example: `./node_cluster_init.sh -c config/gaiaA.sh`
+  * Example: `./node_cluster_init.sh -c config/arch-1.sh`
   * Initializes genesis, configs and P2P network configuration for cluster of base nodes.
 * `node_run.sh -c path_to_config node_ID`
-  * Example: `./node_run.sh -c config/gaiaA.sh 1`
+  * Example: `./node_run.sh -c config/arch-1.sh 1`
   * Starts the node within the current terminal session.
 * `node_cluster_run.sh -c path_to_config`
-  * Example: `./node_cluster_run.sh -c config/gaiaA.sh`
+  * Example: `./node_cluster_run.sh -c config/arch-1.sh`
   * Runs the `node_run.sh` scripts.
   * Each node is `tmux`-ed into `{CHAIN_ID}_node_{NODE_ID}` tmux session.
 * `node_add_to_cluster.sh -c path_to_config node_ID`
-  * Example: `./node_add_to_cluster.sh -c config/gaiaA.sh 4`
+  * Example: `./node_add_to_cluster.sh -c config/arch-1.sh 4`
   * Having a cluster of nodes up and running, script initializes a new one, wait for it to sync up and registers a new validator.
   * Script doesn't start the new node, use `node_run.sh` after this one.
 * `import_genesis_acc.sh -c path_to_config acc_name acc_index acc_mnemonic [acc_number]`
-  * Example: `./import_genesis_acc.sh -c config/gaiaA.sh local-bank 1 'secret'`
+  * Example: `./import_genesis_acc.sh -c config/arch-1.sh local-bank 1 'secret'`
   * Script is useful when custom genesis file is used, and some account should be reused rather than generating it from scratch (`local-validator-1` for example).
 * `wait_for_block.sh -c path_to_config target_block`
-  * Example: `./wait_for_block.sh -c config/gaiaA.sh 500`
+  * Example: `./wait_for_block.sh -c config/arch-1.sh 500`
   * Script queries the 1st node and waits for it to reach the `{target_block}`.
 * `stop_cluster.sh -c path_to_config`
   * Example: `./stop_cluster.sh -c config/gaiaA.sh`
@@ -123,11 +128,11 @@ The config variable `KEYRING_BACKEND` defines which secret storage to use:
   * Requires passphrase to be entered for each keyring operation;
   * Default passphrase: `passphrase`;
 
-Script creates a new account key (`{CHAIN_ID}_local-bank`, `{CHAIN_ID}_local-validator1`, etc.) only if it is not present.
+Script creates a new account key (`{CHAIN_ID}_local-bank`, `{CHAIN_ID}_local-relayer`, `{CHAIN_ID}_local-validator1`, etc.) only if it is not present.
 That way mnemonic and address is only created once per account.
 Account  prefix is needed to avoid collisions with existing genesis account when an exported genesis is used or with other chain accounts.
 
-Mnemonic and private keys can be found in the `${HOME}/{CLUSTER_DIR}/local/keyring` directory (`validator1_key`, `bank_key`, etc.).
+Mnemonic and private keys can be found in the `${HOME}/{CLUSTER_DIR}/keyring` directory (`validator1_key`, `bank_key`, etc.).
 Those files are created as a new account is created.
 
 #### Aliases
@@ -158,19 +163,19 @@ Scripts to init and start IBC relayer instances to connect two chains via channe
 
 ### Requirements
 
-Prepare relayer config file for your chains ([example](./config/relayer_gaiaAB.sh)). Path is bidirectional, so there is no need to create A->B and B->A paths.
+Prepare relayer config file for your chains ([example](./config/hermes_arch1arch2.sh)).
+Path is bidirectional, so there is no need to create A->B and B->A paths.
 
 ### Scripts
 
-* `relayer_init.sh -c path_to_config`
-  * Example: `./relayer_init.sh -c config/relayer_gaiaAB.sh`
+* `hermes_init.sh -c path_to_config`
+  * Example: `./hermes_init.sh -c config/hermes_arch1arch2.sh`
   * Initializes relayer config, adds chain and path configs.
   * Script sends multiple transactions to create IBC clients and channels (that can take some time).
-* `relayer_run.sh -c path_to_config`
-  * Example: `./relayer_run.sh -c config/relayer_gaiaAB.sh`
-  * Starts multiple relayer instances (one for each path).
-  * Each instance is tmux-ed into `{CHAIN1_ID}_{CHAIN2_ID}_relayer_{path_name}` tmux session.
-* `stop_relayer.sh -c path_to_config`
-  * Example: `./stop_relayer.sh -c config/relayer_gaiaAB.sh`
-  * Stops all tmux sessions for relayers.
-
+* `hermes_run.sh -c path_to_config`
+  * Example: `./hermes_run.sh -c config/hermes_arch1arch2.sh`
+  * Starts a relayer instance.
+  * Instance is tmux-ed into `{CHAIN1_ID}_{CHAIN2_ID}_hermes` tmux session.
+* `stop_hermes.sh -c path_to_config`
+  * Example: `./stop_hermes.sh -c config/hermes_arch1arch2.sh`
+  * Stops all tmux sessions for a relayer.

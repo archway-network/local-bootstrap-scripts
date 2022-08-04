@@ -31,7 +31,7 @@ echo "Init node: 0"
   sed -i.bak -e 's;seed_mode = false;seed_mode = true;' "${node_dir}/config/config.toml"
   sed -i.bak -e 's;addr_book_strict = true;addr_book_strict = false;' "${node_dir}/config/config.toml"
 
-  if [ ! -z "${EXPORTED_GENESIS}" ]; then
+  if [ -n "${EXPORTED_GENESIS}" ]; then
     echo "  Replace default genesis with an exported one"
     cp "${EXPORTED_GENESIS}" "${node_dir}/config/genesis.json"
   fi
@@ -48,7 +48,7 @@ echo
 
 ##
 echo "Build account names list (keys add, add-genesis-account)"
-  accnames_unfiltered=("${ACCNAME_BANK}")
+  accnames_unfiltered=("${ACCNAME_BANK}" "${ACCNAME_RELAYER}")
   accnames_unfiltered=("${accnames_unfiltered[@]}" "${EXTRA_ACCOUNTS[@]} ")
   for i in $(seq 1 $NODES_CNT_FIX); do
     accnames_unfiltered+=("${ACCPREFIX_VALIDATOR}${i}")
@@ -89,10 +89,26 @@ echo "Add genesis accounts"
     cli_genacc_flags="${cli_common_flags} --keyring-backend ${KEYRING_BACKEND} --output json"
 
     for accname in "${accnames[@]}"; do
-      # >>
-      ${COSMOSD} add-genesis-account $(Keys_getAddr ${accname}) ${GENACC_COINS} ${cli_genacc_flags}
+      accbalance=""
+      if [[ $accname == ${ACCNAME_BANK}* ]]; then
+        accbalance="${BANK_COINS}"
+      fi
+      if [[ $accname == ${ACCNAME_RELAYER}* ]]; then
+              accbalance="${RELAYER_COINS}"
+            fi
+      if [[ $accname == ${ACCPREFIX_VALIDATOR}* ]]; then
+        accbalance="${VALIDATOR_COINS}"
+      fi
+      for extraname in "${EXTRA_ACCOUNTS[@]}"; do
+        if [[ $accname == ${extraname}* ]]; then
+          accbalance="${EXTRA_COINS}"
+        fi
+      done
 
-      echo "  ${accname}: genesis account added"
+      # >>
+      ${COSMOSD} add-genesis-account $(Keys_getAddr ${accname}) ${accbalance} ${cli_genacc_flags}
+
+      echo "  ${accname}: genesis account added with ${accbalance} coins"
     done
   else
     echo "  Operation skipped"
@@ -102,8 +118,20 @@ echo
 ##
 echo "Change other genesis settings"
   if ! $SKIP_GENESIS_OPS; then
-    printf "$(jq '.app_state.gov.voting_params.voting_period = "30s"' ${node_dir}/config/genesis.json)" > ${node_dir}/config/genesis.json
-    printf "$(jq '.consensus_params.block.max_gas = "10000000"' ${node_dir}/config/genesis.json)" > ${node_dir}/config/genesis.json
+    # Consensus
+    printf "$(jq '.consensus_params.block.max_gas = "%s"' ${node_dir}/config/genesis.json)" "${GEN_CONSENSUS_BLOCK_GAS_LIMIT}" > ${node_dir}/config/genesis.json
+    # x/staking
+    printf "$(jq '.app_state.staking.params.bond_denom = "%s"' ${node_dir}/config/genesis.json)" "${STAKE_DENOM}" > ${node_dir}/config/genesis.json
+    # x/mint
+    printf "$(jq '.app_state.mint.params.mint_denom = "%s"' ${node_dir}/config/genesis.json)" "${STAKE_DENOM}" > ${node_dir}/config/genesis.json
+    printf "$(jq '.app_state.mint.params.inflation_min = "%s"' ${node_dir}/config/genesis.json)" "${GEN_MINT_MIN_INFLATION}" > ${node_dir}/config/genesis.json
+    printf "$(jq '.app_state.mint.params.inflation_max = "%s"' ${node_dir}/config/genesis.json)" "${GEN_MINT_MAX_INFLATION}" > ${node_dir}/config/genesis.json
+    printf "$(jq '.app_state.mint.params.blocks_per_year = "%s"' ${node_dir}/config/genesis.json)" "${GEN_MINT_BLOCKS_PER_YEAR}" > ${node_dir}/config/genesis.json
+    # x/gov
+    printf "$(jq '.app_state.gov.voting_params.voting_period = "%s"' ${node_dir}/config/genesis.json)" "${GEN_GOV_VOTING_PERIOD}" > ${node_dir}/config/genesis.json
+    printf "$(jq '.app_state.gov.deposit_params.min_deposit[0].denom = "%s"' ${node_dir}/config/genesis.json)" "${STAKE_DENOM}" > ${node_dir}/config/genesis.json
+    # x/crisis
+    printf "$(jq '.app_state.crisis.constant_fee.denom = "%s"' ${node_dir}/config/genesis.json)" "${STAKE_DENOM}" > ${node_dir}/config/genesis.json
   else
     echo "  Operation skipped"
   fi

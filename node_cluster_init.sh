@@ -23,6 +23,7 @@ done
 echo "-> Configuring genesis"
   source "${DIR}/lib/node/init_genesis.sh"
 echo "-> Done"
+echo
 
 echo "-> Configuring p2p network"
   source "${DIR}/lib/node/init_peers.sh"
