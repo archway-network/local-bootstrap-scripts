@@ -2,43 +2,21 @@
 
 set -e
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source "${DIR}/common.sh"
 source "$(dirname ${DIR})/lib/utils.sh"
 
-# Input
-CREATOR_NAME="arch-1_local-bank"
-VOTER1_NAME="arch-1_local-validator-1"
-VOTER2_NAME="arch-1_local-validator-2"
-VOTER3_NAME="arch-1_local-validator-3"
-
+# Inputs
+CONTRACT_OWNER_NAME="arch-1_local-bank"
 CONTRACT_BYTECODE_PATH="${HOME}/Go_Projects/src/github.com/CosmWasm/cosmwasm-go/example/voter/voter.wasm"
-CONTRACT_LABEL="voter"
 
-CMD_KEYS="archwayd keys --keyring-backend os"
-CMD_TX="archwayd tx --chain-id arch-1 --node tcp://localhost:26671 --keyring-backend os"
-CMD_Q="archwayd q --node tcp://localhost:26671"
+# Defaults
+CONTRACT_LABEL="voter"    # instantiation label
+NEWVOTING_COST_AMT="1000" # voting creation cost
+VOTE_COST_AMT="100"       # vote cost
 
-GAS=5000000
-DENOM="stake"
-FEES="1000stake"
-
-NEWVOTING_COST_AMT="1000"
-VOTE_COST_AMT="100"
-
-NEWVOTING_COST_SUDO_AMT="999"
-VOTE_COST_SUDO_AMT="99"
-GOV_DEPOSIT="10000000${DENOM}"
-#
-
-# State
-CREATOR_ADDR=""
-VOTER1_ADDR=""
-VOTER2_ADDR=""
-VOTER3_ADDR=""
-
-CODE_ID=""
-CONTRACT_ADDR=""
-#
+NEWVOTING_COST_SUDO_AMT="999" # updated voting creation cost
+VOTE_COST_SUDO_AMT="99"       # updated vote cost
 
 # Templates
 MSG_INSTANTIATE='{ "params": { "owner_addr": "%ownerAddr%", "new_voting_cost": "%newVotingAmt%%denom%", "vote_cost": "%voteAmt%%denom%", "ibc_send_timeout": 30000000000 } }'
@@ -56,485 +34,180 @@ SUDO_CHANGE_NEWVOTING_COST='{ "change_new_voting_cost": { "new_cost": { "denom":
 SUDO_CHANGE_VOTE_COST='{ "change_vote_cost": { "new_cost": { "denom": "%denom%", "amount": "%amount%" } } }'
 #
 
-# Get account address
-function SetUsersAddress() {
-  echo "-> Reading account addresses"
-    CREATOR_ADDR=$(${CMD_KEYS} show -a "${CREATOR_NAME}")
-    VOTER1_ADDR=$(${CMD_KEYS} show -a "${VOTER1_NAME}")
-    VOTER2_ADDR=$(${CMD_KEYS} show -a "${VOTER2_NAME}")
-    VOTER3_ADDR=$(${CMD_KEYS} show -a "${VOTER3_NAME}")
-    echo "Sender addr (${CREATOR_NAME}): ${CREATOR_ADDR}"
-    echo "Voter 1 addr (${VOTER1_NAME}): ${VOTER1_ADDR}"
-    echo "Voter 2 addr (${VOTER2_NAME}): ${VOTER2_ADDR}"
-    echo "Voter 3 addr (${VOTER3_NAME}): ${VOTER3_ADDR}"
-  echo
-}
-
-# Upload and get codeID
-function UploadCodeAndGetID() {
-  echo "-> Uploading code for the Sender addr"
-    ${CMD_TX} wasm store "${CONTRACT_BYTECODE_PATH}" --from "${CREATOR_ADDR}" --gas ${GAS} --output json -y -b block | pbcopy
-    CODE_ID=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="store_code") | .attributes[0].value')
-    echo "CodeID: ${CODE_ID}"
-  echo
-}
-
-# Instantiate and get contractAddress
-function InstantiateAndGetAddress() {
-  owner_addr="$1"
-
-  msg="${MSG_INSTANTIATE//%ownerAddr%/$owner_addr}"
-  msg="${msg//%denom%/$DENOM}"
-  msg="${msg//%newVotingAmt%/$NEWVOTING_COST_AMT}"
-  msg="${msg//%voteAmt%/$VOTE_COST_AMT}"
-
-  echo "-> Instantiating code (${CODE_ID}) from the Sender addr"
-    printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm instantiate "${CODE_ID}" "${msg}" --label "${CONTRACT_LABEL}" --admin "${CREATOR_ADDR}" --from "${CREATOR_ADDR}" --output json --gas ${GAS} --fees ${FEES} -y -b block | pbcopy
-
-    CONTRACT_ADDR=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="instantiate") | .attributes[] | select(.key=="_contract_address").value')
-    echo "ContractAddress: ${CONTRACT_ADDR}"
-  echo
-}
-
-# Get the latest uploaded codeID and instanceID
-function SelectLatestCodeInstance() {
-  echo "-> Getting the latest contractAddress for the Sender addr"
-    ${CMD_Q} wasm list-code --output json | pbcopy
-    CODE_ID=$(pbpaste | jq -r '.code_infos[] | select(.creator=="'"${CREATOR_ADDR}"'") | .code_id' | sort -n | tail -1)
-    echo "Latest codeID: ${CODE_ID}"
-
-    ${CMD_Q} wasm list-contract-by-code "${CODE_ID}" --output json | pbcopy
-    CONTRACT_ADDR=$(pbpaste | jq -r '.contracts[]' | tail -1)
-    echo "Latest contractAddress: ${CONTRACT_ADDR}"
-  echo
-}
-
-# Get an account balance
-function GetAccBalance() {
-  acc_addr="$1"
-
-  echo "-> Getting account (${acc_addr}) balance"
-    ${CMD_Q} bank balances "${acc_addr}" -o json | jq
-  echo
-}
-
-# Transfer coins via x/bank
-function TransferCoins() {
-  from_addr="$1"
-  to_addr="$2"
-  coins="$3"
-
-  echo "-> Transferring (${coins}) from (${from_addr}) to (${to_addr})"
-    ${CMD_TX} bank send "${from_addr}" "${to_addr}" "${coins}" --from "${from_addr}" -y -b block -o json | pbcopy
-  echo
-}
-
-# Release contract funds
-function MsgRelease() {
-  sender="$1"
-
-  msg=${MSG_RELEASE}
-
-  echo "-> Sending the Release msg from the (${sender}) addr"
-    printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${sender}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
-
-    pbpaste | jq -r '.data' | xxd -r -p; echo
-    pbpaste | jq '.raw_log'
-  echo
-}
-
-# Create new voting
-function MsgNewVoting() {
-  name="$1"
-  opts_raw="$2"
-  dur="$3"
-
-  # Split with ',' and double quote every value
-  opts_array=(${opts_raw//,/ })
-  for (( i=0; i<${#opts_array[@]}; i++ )); do
-    opts_array[$i]="\"${opts_array[$i]}\""
-  done
-  opts=$(ArrayJoin ',' "${opts_array[@]}")
-
-  msg=${MSG_NEW_VOTING//%name%/$name}
-  msg=${msg//%voteOptions%/$opts}
-  msg=${msg//%duration%/$dur}
-
-  amount="${NEWVOTING_COST_AMT}${DENOM}"
-
-  echo "-> Sending the NewVoting msg from the Sender addr with amount (${amount})"
-    printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
-
-    VOTING_ID=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="wasm-new_voting") | .attributes[] | select(.key=="voting_id").value')
-    echo "Voting ID: ${VOTING_ID}"
-  echo
-}
-
-# Vote
-function MsgVote() {
-  sender="$1"
-  id="$2"
-  option="$3"
-  vote="$4"
-
-  msg=${MSG_VOTE//%id%/$id}
-  msg=${msg//%option%/$option}
-  msg=${msg//%vote%/$vote}
-
-  amount="${VOTE_COST_AMT}${DENOM}"
-
-  echo "-> Sending the Vote msg from the (${sender}) addr with amount (${amount})"
-    printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --amount "${amount}" --from "${sender}" --gas ${GAS} --fees ${FEES} -y -b block -o json | pbcopy
-
-    pbpaste | jq '.raw_log'
-  echo
-}
-
-# Send custom message
-function MsgCustom() {
-  msg="$1"
-
-  echo "-> Sending a custom msg from the Verifier addr"
-    printf "Msg:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} wasm execute "${CONTRACT_ADDR}" "${msg}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block
-  echo
-}
-
-# Query Params endpoint
-function QueryParams() {
-  query="${QUERY_PARAMS}"
-
-  echo "-> Querying the Params endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Query Voting endpoint
-function QueryVoting() {
-  id="$1"
-
-  query=${QUERY_VOTING//%id%/$id}
-
-  echo "-> Querying the Voting endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Query Tally endpoint
-function QueryTally() {
-  id="$1"
-
-  query=${QUERY_TALLY//%id%/$id}
-
-  echo "-> Querying the Tally endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Query Open endpoint
-function QueryOpen() {
-  query=${QUERY_OPEN}
-
-  echo "-> Querying the Tally endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Query ReleaseStats endpoint
-function QueryReleaseStats() {
-  query=${QUERY_RELEASE_STATS}
-
-  echo "-> Querying the ReleaseStats endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Query custom endpoint
-function QueryCustom() {
-  query="$1"
-
-  echo "-> Querying a custom endpoint"
-    printf "Query:\n%s\n" "$(echo "${query}" | jq)"
-    ${CMD_Q} wasm contract-state smart "${CONTRACT_ADDR}" "${query}" -o json | pbcopy
-
-    echo; echo "Response:"
-    pbpaste | jq '.data'
-  echo
-}
-
-# Propose and vote for the NewVotingCost sudo Gov proposal
-function SudoNewVotingCost() {
-  msg=${SUDO_CHANGE_NEWVOTING_COST//%denom%/$DENOM}
-  msg=${msg//%amount%/$NEWVOTING_COST_SUDO_AMT}
-
-  echo "-> Sending NewVotingCost proposal"
-    printf "Proposal:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} gov submit-proposal sudo-contract "${CONTRACT_ADDR}" "${msg}" \
-      --title "NewVoting cost change" \
-      --description "Lower the cost just because" \
-      --deposit "${GOV_DEPOSIT}" \
-      --from "${CREATOR_ADDR}" \
-      --gas ${GAS} \
-      -y -b block \
-      -o json | pbcopy
-
-    proposal_id=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="submit_proposal").attributes[] | select(.key=="proposal_id").value')
-    echo "ProposalID: ${proposal_id}"
-  echo
-
-  voteForProposal "${proposal_id}"
-}
-
-# Propose and vote for the VoteCost sudo Gov proposal
-function SudoVoteCost() {
-  msg=${SUDO_CHANGE_VOTE_COST//%denom%/$DENOM}
-  msg=${msg//%amount%/$VOTE_COST_SUDO_AMT}
-
-  echo "-> Sending VoteCost proposal"
-    printf "Proposal:\n%s\n" "$(echo "${msg}" | jq)"
-    ${CMD_TX} gov submit-proposal sudo-contract "${CONTRACT_ADDR}" "${msg}" \
-      --title "Vote cost change" \
-      --description "Lower the cost just because" \
-      --deposit "${GOV_DEPOSIT}" \
-      --from "${CREATOR_ADDR}" \
-      --gas ${GAS} \
-      -y -b block \
-      -o json | pbcopy
-
-    proposal_id=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="submit_proposal").attributes[] | select(.key=="proposal_id").value')
-    echo "ProposalID: ${proposal_id}"
-  echo
-
-  voteForProposal "${proposal_id}"
-}
-
-# Set contract metadata
-function SetMetadata() {
-  rewards_addr="$1"
-
-  echo "-> Setting metadata"
-    ${CMD_TX} rewards set-contract-metadata "${CONTRACT_ADDR}" --owner-address "${CREATOR_ADDR}" --rewards-address "${rewards_addr}" --from "${CREATOR_ADDR}" --gas ${GAS} --fees ${FEES} -y -b block -o json | jq
-
-  echo
-}
-
-# Get contract metadata
-function GetMetadata() {
-  echo "-> Querying metadata"
-    ${CMD_Q} rewards contract-metadata "${CONTRACT_ADDR}"
-  echo
-}
-
-function GetCurrentBlock() {
-  ${CMD_Q} block | jq -r '.block.header.height'
-}
-
-function voteForProposal() {
-  proposal_id="$1"
-
-  echo "-> Vote with [${VOTER1_NAME}, ${VOTER2_NAME}, ${VOTER3_NAME}] accounts"
-    ${CMD_TX} gov vote "${proposal_id}" yes --from "${VOTER1_ADDR}" -y -b block | pbcopy
-    ${CMD_TX} gov vote "${proposal_id}" yes --from "${VOTER2_ADDR}" -y -b block | pbcopy
-    ${CMD_TX} gov vote "${proposal_id}" yes --from "${VOTER3_ADDR}" -y -b block | pbcopy
-  echo
-
-  echo "-> Wait for voting period to end"
-    i=0
-    while true; do
-      sleep 5
-      ((i=i+5))
-
-      proposal_status=$(${CMD_Q} gov proposal "${proposal_id}" -o json | jq -r '.status')
-      echo "${i}: current status: ${proposal_status}"
-
-      if [ "${proposal_status}" = "PROPOSAL_STATUS_PASSED" ]; then
-        break
-      fi
-    done
-  echo
-}
-
 # Main
-SetUsersAddress
+SetupChainParams "$(dirname ${DIR})/config/arch-1.sh"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
   init)
-    shift
+    shift; echo ">> Initializing contract..."
+    owner_addr=$(PrintAccountAddress ${CONTRACT_OWNER_NAME})
 
-    UploadCodeAndGetID
-    InstantiateAndGetAddress "${CREATOR_ADDR}"
+    msg="${MSG_INSTANTIATE//%ownerAddr%/$owner_addr}"
+    msg="${msg//%denom%/$STAKE_DENOM}"
+    msg="${msg//%newVotingAmt%/$NEWVOTING_COST_AMT}"
+    msg="${msg//%voteAmt%/$VOTE_COST_AMT}"
+
+    UploadCodeAndGetID "${CONTRACT_BYTECODE_PATH}" "${CONTRACT_OWNER_NAME}"
+    InstantiateCodeWithAdmin "${msg}" "${CONTRACT_LABEL}" "${CONTRACT_OWNER_NAME}"
+    SetContractMetadata "${CONTRACT_OWNER_NAME}" "${CONTRACT_OWNER_NAME}" "${CONTRACT_OWNER_NAME}"
     ;;
   balance-contract)
-    shift
+    shift; echo ">> Getting contract balance..."
 
-    SelectLatestCodeInstance
-    GetAccBalance "${CONTRACT_ADDR}"
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    GetAccBalance "${CONTRACT_ADDRESS}"
+    PrintLatestOutput
     ;;
-  fund-contract)
-    shift
-    if [ $# != 1 ]; then
-      echo "Usage: fund-contract {amount}"
-      exit 1
-    fi
-    coins="$1"; shift
+  balance-owner)
+    shift; echo ">> Getting owner (rewardsAddr) balance..."
 
-    SelectLatestCodeInstance
-    TransferCoins "${VERIFIER_ADDR}" "${CONTRACT_ADDR}" "${coins}"
-    ;;
-  msg-release)
-    shift
+    owner_addr=$(PrintAccountAddress ${CONTRACT_OWNER_NAME})
 
-    SelectLatestCodeInstance
-    MsgRelease "${CREATOR_ADDR}"
+    GetAccBalance "${owner_addr}"
+    PrintLatestOutput
     ;;
-  msg-new-voting)
-    shift
+  release)
+    shift; echo ">> Releasing contract funds to its owner..."
+
+    msg=${MSG_RELEASE}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SendContractExecuteMsg "${msg}" "${CONTRACT_OWNER_NAME}"
+    ;;
+  new-voting)
+    shift; echo ">> Creating a new voting..."
     if [ $# != 3 ]; then
-      echo "Usage: msg-new-voting {name} {commaSeparatedOptions} {votingDurationInNS}"
+      echo "Usage: {votingName} {commaSeparatedOptions} {votingDurationInNS}"
       exit 1
     fi
     name="$1"; shift
-    opts="$1"; shift
+    opts_raw="$1"; shift
     dur="$1"; shift
 
-    SelectLatestCodeInstance
-    MsgNewVoting "${name}" "${opts}" "${dur}"
+    # Split with ',' and double quote every value
+    opts_array=(${opts_raw//,/ })
+    for ((i = 0; i < ${#opts_array[@]}; i++)); do
+      opts_array[$i]="\"${opts_array[$i]}\""
+    done
+    opts=$(ArrayJoin ',' "${opts_array[@]}")
+
+    msg=${MSG_NEW_VOTING//%name%/$name}
+    msg=${msg//%voteOptions%/$opts}
+    msg=${msg//%duration%/$dur}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SendContractExecuteMsgWithAmount "${msg}" "${NEWVOTING_COST_AMT}" "${CONTRACT_OWNER_NAME}"
+
+    voting_id=$(pbpaste | jq -r '.logs[0].events[] | select(.type=="wasm-new_voting") | .attributes[] | select(.key=="voting_id").value')
+    echo "Voting ID: ${voting_id}"
     ;;
-  msg-vote)
-    shift
+  vote)
+    shift; echo ">> Adding a vote..."
     if [ $# != 4 ]; then
-      echo "Usage: msg-vote {voterID} {votingID} {option} {vote}"
+      echo "Usage: {voterName} {votingID} {option} {vote}"
       exit 1
     fi
-    voter_id="$1"; shift
+    voter_name="$1"; shift
     voting_id="$1"; shift
     option="$1"; shift
     vote="$1"; shift
 
-    voter_addr=""
-    case $voter_id in
-      1) voter_addr="${VOTER1_ADDR}";;
-      2) voter_addr="${VOTER2_ADDR}";;
-      3) voter_addr="${VOTER3_ADDR}";;
-      *) echo "Unknown voterID (1/2/3 is expected)"; exit 1
-    esac
+    msg=${MSG_VOTE//%id%/$voting_id}
+    msg=${msg//%option%/$option}
+    msg=${msg//%vote%/$vote}
 
-    SelectLatestCodeInstance
-    MsgVote "${voter_addr}" "${voting_id}" "${option}" "${vote}"
-    ;;
-  msg-custom)
-    shift
-    if [ $# != 1 ]; then
-      echo "Usage: msg-custom {msg}"
-      exit 1
-    fi
-    msg="$1"; shift
-
-    SelectLatestCodeInstance
-    MsgCustom "${msg}"
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SendContractExecuteMsgWithAmount "${msg}" "${VOTE_COST_AMT}" "${voter_name}"
     ;;
   query-params)
-    shift
+    shift; echo ">> Querying contract params..."
 
-    SelectLatestCodeInstance
-    QueryParams
+    query="${QUERY_PARAMS}"
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    QueryContractSmart "${query}"
+    PrintQueryResults
     ;;
   query-voting)
-    shift
+    shift; echo ">> Querying voting info..."
     if [ $# != 1 ]; then
-      echo "Usage: query-voting {votingID}"
+      echo "Usage: {votingID}"
       exit 1
     fi
-    id="$1"; shift
+    voting_id="$1"; shift
 
-    SelectLatestCodeInstance
-    QueryVoting "${id}"
+    query="${QUERY_VOTING//%id%/$voting_id}"
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    echo $query
+    QueryContractSmart "${query}"
+    PrintQueryResults
     ;;
   query-tally)
-    shift
+    shift; echo ">> Querying voting tally (vote progress)..."
     if [ $# != 1 ]; then
-      echo "Usage: query-tally {votingID}"
+      echo "Usage: {votingID}"
       exit 1
     fi
-    id="$1"; shift
+    voting_id="$1"; shift
 
-    SelectLatestCodeInstance
-    QueryTally "${id}"
+    query=${QUERY_TALLY//%id%/$voting_id}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    QueryContractSmart "${query}"
+    PrintQueryResults
     ;;
   query-open)
-    shift
+    shift; echo ">> Querying active votings..."
 
-    SelectLatestCodeInstance
-    QueryOpen
+    query=${QUERY_OPEN}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    QueryContractSmart "${query}"
+    PrintQueryResults
     ;;
   query-release-stats)
-    shift
+    shift; echo ">> Querying release statistics..."
 
-    SelectLatestCodeInstance
-    QueryReleaseStats
-    ;;
-  query-custom)
-    shift
-    if [ $# != 1 ]; then
-      echo "Usage: query-custom {query}"
-      exit 1
-    fi
-    query="$1"; shift
+    query=${QUERY_RELEASE_STATS}
 
-    SelectLatestCodeInstance
-    QueryCustom "${query}"
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    QueryContractSmart "${query}"
+    PrintQueryResults
     ;;
   sudo-newvoting-cost)
-    shift
+    shift; echo ">> Changing the NewVotingCost..."
 
-    SelectLatestCodeInstance
-    SudoNewVotingCost
+    msg=${SUDO_CHANGE_NEWVOTING_COST//%denom%/$STAKE_DENOM}
+    msg=${msg//%amount%/$NEWVOTING_COST_SUDO_AMT}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SubmitSudoProposal "${msg}" "NewVoting cost change" "Lower the cost just because"
     ;;
   sudo-vote-cost)
-    shift
+    shift; echo ">> Changing the VoteCost..."
 
-    SelectLatestCodeInstance
-    SudoVoteCost
+    msg=${SUDO_CHANGE_VOTE_COST//%denom%/$STAKE_DENOM}
+    msg=${msg//%amount%/$VOTE_COST_SUDO_AMT}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SubmitSudoProposal "${msg}" "Vote cost change" "Lower the cost just because"
     ;;
-  set-metadata)
+  tracking-history)
     shift
 
-    SelectLatestCodeInstance
-    SetMetadata "${VOTER1_ADDR}"
-    GetMetadata
-    ;;
-  get-height)
-    shift
-
-    GetCurrentBlock
+    PrintGasRewardsTrackingHistory
     ;;
   *)
     echo "Unsupported cmd"
+    echo
+    echo "Usage: $0 {cmd}"
+    echo
+    echo "Message: release, new-voting, vote"
+    echo "Query: query-params, query-voting, query-tally, query-open, query-release-stats, query-custom"
+    echo "Sudo: sudo-newvoting-cost, sudo-vote-cost"
+    echo "Other: init, balance-contract, balance-owner, tracking-history"
     exit 1
     ;;
   esac
