@@ -176,6 +176,9 @@ Path is bidirectional, so there is no need to create A->B and B->A paths.
   * Example: `./hermes_run.sh -c config/hermes_arch1arch2.sh`
   * Starts a relayer instance.
   * Instance is tmux-ed into `{CHAIN1_ID}_{CHAIN2_ID}_hermes` tmux session.
+* `hermes_add_channel.sh -c path_to_config chain1_ibc_port chain2_ibc_port ibc_order ibc_version`
+  * Example: `./hermes_add_channel.sh -c config/hermes_arch1arch2.sh wasm.archway1hm4y6fzgxgu688jgf7ek66px6xkrtmn3gyk8fax3eawhp68c2d5q23637w wasm.archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u unordered voter-1`
+  * Adds a new channel to a running relayer instance (useful to connect two contracts over IBC).
 * `stop_hermes.sh -c path_to_config`
   * Example: `./stop_hermes.sh -c config/hermes_arch1arch2.sh`
   * Stops all tmux sessions for a relayer.

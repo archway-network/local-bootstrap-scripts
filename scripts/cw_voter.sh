@@ -7,8 +7,12 @@ source "${DIR}/common.sh"
 source "$(dirname ${DIR})/lib/utils.sh"
 
 # Inputs
-CONTRACT_OWNER_NAME="arch-1_local-bank"
+CHAIN_CONFIG="$(dirname ${DIR})/config/arch-1.sh" # chain config file path (can be altered with -c)
+CONTRACT_OWNER_NAME_SUFFIX="local-bank"           # suffix of the contract owner name (refer to $CONTRACT_OWNER_NAME)
 CONTRACT_BYTECODE_PATH="${HOME}/Go_Projects/src/github.com/CosmWasm/cosmwasm-go/example/voter/voter.wasm"
+
+# State
+CONTRACT_OWNER_NAME="" # contract owner name (set later as: "${CHAIN_ID}_${CONTRACT_OWNER_NAME_SUFFIX}")
 
 # Defaults
 CONTRACT_LABEL="voter"    # instantiation label
@@ -23,6 +27,7 @@ MSG_INSTANTIATE='{ "params": { "owner_addr": "%ownerAddr%", "new_voting_cost": "
 MSG_RELEASE='{ "release": {} }'
 MSG_NEW_VOTING='{ "new_voting": { "name": "%name%", "vote_options": [ %voteOptions% ], "duration": %duration% } }'
 MSG_VOTE='{ "vote": { "id": %id%, "option": "%option%", "vote": "%vote%" } }'
+MSG_VOTE_IBC='{ "send_ibc_vote": { "id": %id%, "option": "%option%", "vote": "%vote%", "channel_id": "%channelID%" } }'
 
 QUERY_PARAMS='{ "params": {} }'
 QUERY_VOTING='{ "voting": { "id": %id% } }'
@@ -35,10 +40,24 @@ SUDO_CHANGE_VOTE_COST='{ "change_vote_cost": { "new_cost": { "denom": "%denom%",
 #
 
 # Main
-SetupChainParams "$(dirname ${DIR})/config/arch-1.sh"
+function init() {
+  SetupChainParams "${CHAIN_CONFIG}"
+  CONTRACT_OWNER_NAME="${CHAIN_ID}_${CONTRACT_OWNER_NAME_SUFFIX}"
+}
+init
 
 while [[ $# -gt 0 ]]; do
   case $1 in
+  -c | --config)
+    shift
+    if [ $# -lt 1 ]; then
+      echo "Usage: -c {alternativeChainConfig}"
+      exit 1
+    fi
+    CHAIN_CONFIG="$1"; shift
+
+    init
+    ;;
   init)
     shift; echo ">> Initializing contract..."
     owner_addr=$(PrintAccountAddress ${CONTRACT_OWNER_NAME})
@@ -51,6 +70,13 @@ while [[ $# -gt 0 ]]; do
     UploadCodeAndGetID "${CONTRACT_BYTECODE_PATH}" "${CONTRACT_OWNER_NAME}"
     InstantiateCodeWithAdmin "${msg}" "${CONTRACT_LABEL}" "${CONTRACT_OWNER_NAME}"
     SetContractMetadata "${CONTRACT_OWNER_NAME}" "${CONTRACT_OWNER_NAME}" "${CONTRACT_OWNER_NAME}"
+    ;;
+  info)
+    shift; echo ">> Print contract and chain info..."
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    PrintContractInfo
+    PrintOpenIBCChannels
     ;;
   balance-contract)
     shift; echo ">> Getting contract balance..."
@@ -116,6 +142,26 @@ while [[ $# -gt 0 ]]; do
     msg=${MSG_VOTE//%id%/$voting_id}
     msg=${msg//%option%/$option}
     msg=${msg//%vote%/$vote}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    SendContractExecuteMsgWithAmount "${msg}" "${VOTE_COST_AMT}" "${voter_name}"
+    ;;
+  vote-ibc)
+    shift; echo ">> Adding a vote via IBC..."
+    if [ $# != 5 ]; then
+      echo "Usage: {voterName} {votingID} {option} {vote} {ibcChannelID}"
+      exit 1
+    fi
+    voter_name="$1"; shift
+    voting_id="$1"; shift
+    option="$1"; shift
+    vote="$1"; shift
+    channel_id="$1"; shift
+
+    msg=${MSG_VOTE_IBC//%id%/$voting_id}
+    msg=${msg//%option%/$option}
+    msg=${msg//%vote%/$vote}
+    msg=${msg//%channelID%/$channel_id}
 
     SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
     SendContractExecuteMsgWithAmount "${msg}" "${VOTE_COST_AMT}" "${voter_name}"
@@ -203,11 +249,13 @@ while [[ $# -gt 0 ]]; do
     echo "Unsupported cmd"
     echo
     echo "Usage: $0 {cmd}"
+    echo "Default chain config: ${DEF_CHAIN_CONFIG}"
+    echo "-c | --config - use alternative chain config"
     echo
-    echo "Message: release, new-voting, vote"
+    echo "Message: release, new-voting, vote, vote-ibc"
     echo "Query: query-params, query-voting, query-tally, query-open, query-release-stats, query-custom"
     echo "Sudo: sudo-newvoting-cost, sudo-vote-cost"
-    echo "Other: init, balance-contract, balance-owner, tracking-history"
+    echo "Other: init, info, balance-contract, balance-owner, tracking-history"
     exit 1
     ;;
   esac

@@ -321,6 +321,13 @@ function PrintQueryResults() {
     echo
 }
 
+# Print contract info fron x/wasm.
+function PrintContractInfo() {
+  echo "-> Printing contract info"
+    ${CMD_Q} wasm contract "${CONTRACT_ADDRESS}" -o json | jq
+  echo
+}
+
 # ---------- Transaction operations ------------------------------------------------------------------------------------
 
 # Print the latest tx / query output (which might be pbcopy-ed) as JSON.
@@ -424,6 +431,14 @@ function PrintGasRewardsTrackingHistory() {
 
     cur_block=$((cur_block-1))
   done
+}
+
+# Print open IBC channels in compact form.
+function PrintOpenIBCChannels() {
+  echo "-> Open IBC channels"
+    ${CMD_Q} ibc channel channels -o json | pbcopy
+    pbpaste | jq '.channels[] | select(.state == "STATE_OPEN") | {ChannelID: .channel_id, PortID: .port_id, Order: .ordering, Version: .version, Counterparty: { ChannelID: .counterparty.channel_id, PortID: .counterparty.port_id }}'
+  echo
 }
 
 # ---------- Internal --------------------------------------------------------------------------------------------------
