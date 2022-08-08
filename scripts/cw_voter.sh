@@ -34,6 +34,7 @@ QUERY_VOTING='{ "voting": { "id": %id% } }'
 QUERY_TALLY='{ "tally": { "id": %id% } }'
 QUERY_OPEN='{ "open": {} }'
 QUERY_RELEASE_STATS='{ "release_stats": {} }'
+QUERY_IBC_STATS='{ "ibc_stats": { "from": "%fromAddr%" } }'
 
 SUDO_CHANGE_NEWVOTING_COST='{ "change_new_voting_cost": { "new_cost": { "denom": "%denom%", "amount": "%amount%" } } }'
 SUDO_CHANGE_VOTE_COST='{ "change_vote_cost": { "new_cost": { "denom": "%denom%", "amount": "%amount%" } } }'
@@ -222,6 +223,22 @@ while [[ $# -gt 0 ]]; do
     QueryContractSmart "${query}"
     PrintQueryResults
     ;;
+  query-ibc-stats)
+    shift; echo ">> Querying IBC statistics for a sender..."
+    if [ $# != 1 ]; then
+      echo "Usage: {fromName}"
+      exit 1
+    fi
+    from_name="$1"; shift
+
+    from_addr=$(PrintAccountAddress "${from_name}")
+
+    query=${QUERY_IBC_STATS//%fromAddr%/$from_addr}
+
+    SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
+    QueryContractSmart "${query}"
+    PrintQueryResults
+    ;;
   sudo-newvoting-cost)
     shift; echo ">> Changing the NewVotingCost..."
 
@@ -253,7 +270,7 @@ while [[ $# -gt 0 ]]; do
     echo "-c | --config - use alternative chain config"
     echo
     echo "Message: release, new-voting, vote, vote-ibc"
-    echo "Query: query-params, query-voting, query-tally, query-open, query-release-stats, query-custom"
+    echo "Query: query-params, query-voting, query-tally, query-open, query-release-stats, query-ibc-stats"
     echo "Sudo: sudo-newvoting-cost, sudo-vote-cost"
     echo "Other: init, info, balance-contract, balance-owner, tracking-history"
     exit 1

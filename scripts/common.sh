@@ -474,7 +474,9 @@ function cleanLastTxGasAndFees() {
 function checkTxFailed() {
     codespace="$(pbpaste | jq -r '.codespace')"
     code="$(pbpaste | jq -r '.code')"
+    tx_hash="$(pbpaste | jq -r '.txhash')"
 
+    echo "TxHash: ${tx_hash}"
     if [ -n "${codespace}" ] || [ "${code}" != "0" ]; then
       echo "-> Transaction failed"
       PrintTxRawLog

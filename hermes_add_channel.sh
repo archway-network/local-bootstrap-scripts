@@ -18,7 +18,15 @@ ibc_order="$3"
 ibc_version="$4"
 
 #
-echo "-> Creating channel: ${CHAIN1_ID}.${CHAIN1_IBC_PORT} -> ${CHAIN2_ID}.${CHAIN2_IBC_PORT}, ${ibc_order}, ${ibc_version}"
+existing_connection_id=$(${HERMESD} --config "${HERMES_CONFIG_PATH}" --json query connections --chain "${CHAIN1_ID}" | jq -r '.result[0]')
+echo "-> Creating channel for existing connection ${existing_connection_id}: ${CHAIN1_ID}.${CHAIN1_IBC_PORT} -> ${CHAIN2_ID}.${CHAIN2_IBC_PORT}, ${ibc_order}, ${ibc_version}"
   # >>
-  ${HERMESD} --config "${HERMES_CONFIG_PATH}" create channel --a-chain "${CHAIN1_ID}" --b-chain "${CHAIN2_ID}" --a-port "${CHAIN1_IBC_PORT}" --b-port "${CHAIN2_IBC_PORT}" --order "${ibc_order}" --channel-version "${ibc_version}" --new-client-connection --yes
+  ${HERMESD} --config "${HERMES_CONFIG_PATH}" create channel \
+    --a-chain "${CHAIN1_ID}" \
+    --a-connection "${existing_connection_id}" \
+    --a-port "${CHAIN1_IBC_PORT}" \
+    --b-port "${CHAIN2_IBC_PORT}" \
+    --order "${ibc_order}" \
+    --channel-version "${ibc_version}" \
+    --yes
 echo
