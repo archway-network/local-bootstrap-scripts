@@ -9,7 +9,7 @@ source "$(dirname ${DIR})/lib/utils.sh"
 # Inputs
 CHAIN_CONFIG="$(dirname ${DIR})/config/arch-1.sh" # chain config file path (can be altered with -c)
 CONTRACT_OWNER_NAME_SUFFIX="local-bank"           # suffix of the contract owner name (refer to $CONTRACT_OWNER_NAME)
-CONTRACT_BYTECODE_PATH="${HOME}/Go_Projects/src/github.com/CosmWasm/cosmwasm-go/example/voter/voter.wasm"
+CONTRACT_BYTECODE_PATH="${HOME}/Go_Projects/src/github.com/archway-network/archway/contracts/go/voter/code.wasm"
 
 # State
 CONTRACT_OWNER_NAME="" # contract owner name (set later as: "${CHAIN_ID}_${CONTRACT_OWNER_NAME_SUFFIX}")
