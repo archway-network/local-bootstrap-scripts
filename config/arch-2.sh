@@ -37,6 +37,15 @@ DEF_TX_FEES="1000000${STAKE_DENOM}" # 1.0 arch (more than enough for a single tx
 
 # ---------- Network ---------------------------------------------------------------------------------------------------
 
+## Node urls.
+### This is only used by contract /scripts.
+NODE_RPC_URL="tcp://localhost"
+
+## Node ports.
+### Concrete ports. If defined, they are used as is instead of using prefixes.
+### This is only used by contract /scripts.
+NODE_RPC_PORT=""
+
 ## Node port prefixes.
 ### Actual port number is a combination of a prefix and a node index ({NODE_P2P_PORT_PREFIX}0, ...).
 NODE_P2P_PORT_PREFIX="2676"

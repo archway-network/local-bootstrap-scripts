@@ -38,9 +38,16 @@ function SetupChainParams() {
     source "${chain_config}"
     source "$(dirname ${DIR})/lib/node/common.sh"
 
+    node_url="${NODE_RPC_URL}:"
+    if [ -z "${NODE_RPC_PORT}" ]; then
+      node_url="${node_url}${NODE_RPC_PORT_PREFIX}1"
+    else
+      node_url="${node_url}${NODE_RPC_PORT}"
+    fi
+
     CMD_KEYS="${COSMOSD} keys --keyring-backend ${KEYRING_BACKEND}"
-    CMD_TX="${COSMOSD} tx --chain-id ${CHAIN_ID} --node tcp://localhost:${NODE_RPC_PORT_PREFIX}1 --keyring-backend ${KEYRING_BACKEND}"
-    CMD_Q="${COSMOSD} q --node tcp://localhost:${NODE_RPC_PORT_PREFIX}1"
+    CMD_TX="${COSMOSD} tx --chain-id ${CHAIN_ID} --node ${node_url} --keyring-backend ${KEYRING_BACKEND}"
+    CMD_Q="${COSMOSD} q --node ${node_url}"
 
     DEF_GOV_DEPOSIT="10000000${STAKE_DENOM}"
   echo

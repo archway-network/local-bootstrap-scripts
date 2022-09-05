@@ -13,7 +13,7 @@ if [ $# -eq 0 ]; then
 fi
 TARGET_BLOCK=$1
 
-blockGetter="${COSMOSD} q --node tcp://localhost:${NODE_RPC_PORT_PREFIX}1 block | jq -r \".block.header.height\""
+blockGetter="${COSMOSD} q --node ${NODE_RPC_URL}:${NODE_RPC_PORT_PREFIX}1 block | jq -r \".block.header.height\""
 
 echo "-> Waiting for block ${TARGET_BLOCK}"
 while : ; do
