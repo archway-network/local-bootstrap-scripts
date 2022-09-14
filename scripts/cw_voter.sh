@@ -77,6 +77,7 @@ while [[ $# -gt 0 ]]; do
 
     SelectLatestCodeInstance "${CONTRACT_OWNER_NAME}"
     PrintContractInfo
+    PrintMetadata
     PrintOpenIBCChannels
     ;;
   balance-contract)

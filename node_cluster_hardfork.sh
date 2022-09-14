@@ -10,7 +10,7 @@ source "${DIR}/lib/node/common.sh"
 
 GEN_EXPORT_PATH="${COMMON_DIR}/hardfork_genesis.json"
 NODE1_HOME="${NODE_DIR_PREFIX}1"
-NODE1_RPC_URL="http://127.0.0.1:${NODE_RPC_PORT_PREFIX}1"
+NODE1_RPC_URL="${NODE_RPC_URL}:${NODE_RPC_PORT_PREFIX}1"
 
 echo "-> Building base nodes white list"
   base_node_addrs=()
@@ -28,13 +28,13 @@ echo "-> Done"
 echo
 
 echo "-> Stop all"
-  "${DIR}/stop_all.sh"
+  "${DIR}/stop_cluster.sh" -c "${CONFIG_PATH}"
 echo "-> Done"
 echo
 
 echo "-> Genesis export: ${GEN_EXPORT_PATH}"
   # >>
-  ${COSMOSD} --home "${NODE1_HOME}" export --for-zero-height --jail-allowed-addrs "${WHITE_LIST}" > "${GEN_EXPORT_PATH}"
+  ${COSMOSD} --home "${NODE1_HOME}" export --jail-allowed-addrs "${WHITE_LIST}" > "${GEN_EXPORT_PATH}"
 echo "-> Done"
 echo
 
@@ -52,7 +52,7 @@ echo "-> Reset nodes data (unsafe-reset-all)"
     node_id=${node_id#"${NODE_DIR_PREFIX}"}
 
     # >>
-    ${COSMOSD} --home "$file" unsafe-reset-all
+    ${COSMOSD} --home "$file" tendermint unsafe-reset-all
     
     echo "  Node [${node_id}]: reset"
 

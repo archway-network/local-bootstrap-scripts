@@ -286,6 +286,13 @@ function GetMetadata() {
   echo
 }
 
+# Print contract metadata.
+function PrintMetadata() {
+  echo "-> Printing metadata"
+    ${CMD_Q} rewards contract-metadata "${CONTRACT_ADDRESS}" -o json | jq
+  echo
+}
+
 # Propose and vote for $1 contract Sudo message proposal with $2 title and $3 description.
 # Proposal is send from the 1st validator.
 ## Uses: CONTRACT_ADDRESS.
